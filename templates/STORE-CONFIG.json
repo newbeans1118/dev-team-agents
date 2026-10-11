@@ -1,0 +1,16 @@
+{
+  "_comment": "模版：STORE-CONFIG.json ｜ 创建：project-manager（**项目立项时**，经用户确认，一次性）｜ 存放：test/STORE-CONFIG.json ｜ 作用：测试数据存储双轨（json/sqlite）的唯一开关，所有测试类技能开工前第一步读本文件。",
+  "project": "$PROJECT_NAME",
+  "store": "json",
+  "reason": "选轨理由（立项时确定。参考：单项目执行量<1万、需 git diff 审计 → json；预期执行量大/需任意维度切片/业务数据需SQL复用 → sqlite）",
+  "one_way_migration": "仅允许一次 json→sqlite 单向迁移；迁移后 store 固定为 sqlite，migrated_from 记录迁移源与时间",
+  "created_at": "",
+  "confirmed_by": "user",
+  "sqlite": {
+    "db_path": "test/trace/metrics.db",
+    "schema_template": "templates/SQLITE-SCHEMA.sql",
+    "biz_table_prefix": "td_biz_",
+    "note": "SQLite 轨下本库为唯一权威存储：机制六表(req_functions/cases/td_registry/runs/execs/exec_plans/bugs)+业务表(td_biz_*)；execs 禁 UPDATE/DELETE；业务表经 td_id 外键关联 td_registry；加载脚本仍单独存文件（test/data/scripts/）"
+  },
+  "migrated_from": null
+}

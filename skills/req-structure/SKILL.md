@@ -1,0 +1,105 @@
+---
+name: req-structure
+description: 把功能点结构化存储、供测试用例关联与追踪时使用。触发场景：需要从规格说明书抽取功能点清单、生成分片 req-$MOD.json、校验功能编号唯一性、建立需求侧追踪基线（source_hash）、需求变更后同步结构化数据、提到需求结构化、功能点清单、需求追踪。
+---
+
+# 需求结构化存储（req-structure）
+
+## 目的
+
+从需求说明书中提取功能点的结构化描述信息，**分模块分片**存储，作为五方追踪（需求→用例→数据→执行→缺陷）的**需求侧锚点**。
+
+## 执行者
+
+`product-manager`
+
+## 输入
+
+- `docs/requirements/spec-$MOD.md`
+
+## 输出（按存储轨道）
+
+- **JSON 轨**（默认）：`docs/requirements/trace/req-$MOD.json`（**每模块一片**，禁止合并为单文件——并行写互不冲突）
+- **JSON 轨模板**：`templates/REQ-STRUCTURE.json`
+- **SQLite 轨**：写 `test/trace/metrics.db` 的 `req_functions` 表（module 列保留分片语义；字段与模板一一对应；DDL 见 `templates/SQLITE-SCHEMA.sql`）
+
+## 存储选择（开工第一步）
+
+读 `test/STORE-CONFIG.json`——**项目立项时已一次性选定，全程跟随；仅允许一次 json→sqlite 单向迁移**（迁移后不可逆）。
+- `store=json` → 写分片文件 `docs/requirements/trace/req-$MOD.json`。
+- `store=sqlite` → UPSERT `req_functions` 表（module 列保留分片语义；`source_hash` 仅 SQLite 轨写入——.db 不可 git diff，需行内自证；JSON 轨 stale 由 git 提交对比判定）。
+- 配置缺失 → **BLOCKED 报项目经理**（立项时未完成存储决策，不得代为默认选轨）。**数据契约（实体/字段/关联）两轨完全一致，仅读写方式不同。**
+
+## 数据结构
+
+```json
+{
+  "project": "$PROJECT_NAME",
+  "module": "$MOD",
+  "version": 1,
+  "updated_at": "",
+  "source": "spec-$MOD.md",
+  "source_hash": "sha1:…",
+  "functions": [
+    {
+      "id": "fr-$MOD-001",
+      "name": "功能名称",
+      "biz_refs": ["biz-001"],
+      "actor": "操作角色",
+      "acceptance": "验证标准",
+      "constraints": ["…"],
+      "status": "active | deprecated"
+    }
+  ]
+}
+```
+
+**字段说明（五方关联视角）**：
+
+| 字段 | 作用 |
+|------|------|
+| `functions[]` | **追踪锚，非全文**——功能完整描述（处理逻辑/输入输出/流程图）以 `spec-$MOD.md` 为权威源，按 fr 编号回溯 |
+| `biz_refs` | **归属关联**：本功能点**所属**的业务（业务=粗粒度价值，由多个功能点组成；fr 是细粒度可验收单元）。追溯读法：biz ← fr ← 用例 ← 执行。典型单元素；跨业务公共功能可多项 |
+| `source_hash` | **仅 SQLite 轨**写入 `req_functions.source_hash`（.db 不可 git diff，需行内自证"基于哪版 spec"）。JSON 轨**不写**——stale 由 git 提交对比判定（json 提交早于 spec 提交 = 未同步） |
+| `status: deprecated` | 需求删除时**标记废弃而非物理删除**——保住历史执行/缺陷记录的可回溯性 |
+| ❌ **无 `verification_cases`** | 用例关联只存用例侧（`function_refs`）；反向视图由 `test-rebuild` 派生，**不双写** |
+| ❌ **无 `change_log`** | 变更审计走 **git diff（spec 内容级）+ hash 链（结构级 stale 判定）**，表/文件不重复承载 |
+
+> **变更回溯读法**：内容改了什么 → `git diff spec-$MOD.md`；结构同步了吗 → source_hash 链 + test-rebuild 校验。表中字段是摘要快照，不承担内容级历史。
+
+## 流程
+
+1. 解析各 `spec-$MOD.md`，抽取 `fr-$MOD-xxx`。
+2. 校验编号唯一性与连续性，发现冲突报告产品经理。
+3. 计算 `source_hash`（spec 文件内容哈希）。
+4. 若已有旧分片：`version+1`、被删功能点置 `deprecated`（变更内容审计走 git diff spec 文件）。
+5. 写入分片文件。
+6. 提示：下游 `case-structure` 需重新对齐 `req_source_hash`。
+
+## 质量要求
+
+- 功能点信息与规格说明书一致，不得私自增删。
+- 编号唯一、可检索。
+- 与 `dict.md`、`overview.md` 的模块清单一致。
+- 分片独立合法（可被单文件解析）。
+
+## 检查清单
+
+- [ ] 所有功能点已抽取
+- [ ] 编号唯一且与规格一致
+- [ ] `source_hash` 已计算
+- [ ] 废弃项已标记 deprecated
+- [ ] JSON 结构合法（可被解析）
+
+## 触发与边界
+
+**该用**：需求定稿后首次结构化；**需求变更后重跑**（hash 变化由 test-rebuild 校验发现）。
+
+**不该用**：用例侧结构化 → `case-structure`；需求写作 → `requirement`；覆盖率计算 → `test-rebuild`。
+
+## 常见错误
+
+- 抽取时私自增删功能点（必须与规格一一对应）。
+- 需求变更后直接物理删除功能点（应 `deprecated`，否则历史 EXEC/BUG 悬空）。
+- 忘记更新 `source_hash`（下游三方校验失效）。
+- 合并成单一大文件（并行写冲突 + 检索低效）。
