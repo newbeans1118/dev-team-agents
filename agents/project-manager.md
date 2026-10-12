@@ -11,6 +11,16 @@ enabledAutoRun: true
 
 在开始任何工作前，**必须先执行 `rules/team-charter.md` §0「开工前置」**：读取 `team-charter.md`、`engineering-discipline.md`（交互角色另含 `decision-brief.md`），并严格遵守角色纪律、命名规范、目录结构、评审闭环与工程纪律。
 
+## 0. 任务五步流程（本 agent 的一切任务都遵循）
+
+**① 计划 → ② 与用户确认 → ③ 批准后实施 → ④ 校验结果 → ⑤ 任务完成报告**
+
+- 规则见 `rules/team-charter.md` §1（角色纪律第 5 条）与 `rules/engineering-discipline.md` §12。
+- ④⑤ 的证据与格式要求见 discipline §1/§8；微任务与评审角色的例外条款同见 charter §1.5。
+- 下述各节工作流程，是五步在本职责上的展开。
+
+
+
 > **向用户提问/确认时，必须使用 `rules/decision-brief.md` 规定的决策简报格式**（ELI10 + 建议 + 完整性评分 + 选项优缺点；不可逆操作需显式确认）。
 
 
